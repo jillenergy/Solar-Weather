@@ -57,16 +57,18 @@ sapply(new_solar, class)
 new_solar <- new_solar %>% mutate_if(is.numeric, funs(round(., 5)))
 ####Reference: https://stackoverflow.com/questions/27613310/rounding-selected-columns-of-data-table-in-r
 
-#Third, take the mean of kWh produced by the two solar panels
+#Third, take the mean of kWh produced by the two solar panels (accounting for the NAs in the data using na.rm=TRUE)
 new_solar$SolarMean <- rowMeans(new_solar[,3:4], na.rm = TRUE)
 head(new_solar, 30)
 
 ##TO DO - EMILIE:
 ##STOPPED here. Solar data is in 1-minute intervals. Need to collapse the 1-minute interval data to hourly to be able to compare and analyze with the hourly sunshine and cloud cover data. Take the mean of the energy produced in 60 minutes to come up with the hourly production.
-SolarHourly_df <- colMeans(matrix(new_solar$SolarMean, nrow=60), na.rm = TRUE)
-head(SolarHourly_df)
-##Need to make Solar "TimeStamp" display the same as Jill's Cloud Cover date; change value from kWh to Wh
-##Need to make hourly into daily
+
+##Need to make Solar "Date" display the same as Jill's Cloud Cover date; change value from kWh to Wh
+
+##Turn Solar data in daily
+SolarDaily_df <- aggregate(new_solar$SolarMean, list(Day = new_solar$Date), mean, na.rm = TRUE)
+
 
 ##Separate the date and hour start times into two columns in order to be able to match solar production and weather
 ##Create dataframe with the columns: Date / HourBegin / PercentCloudCover
