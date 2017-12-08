@@ -16,7 +16,7 @@ always_allow_html: yes
 ---
 
 ----------------------------------------------
-Last modified: 12/07/2017 22:14
+Last modified: 12/08/2017 05:15
 ----------------------------------------------
 
 ## Business Problem and Motivation for Project
@@ -28,8 +28,8 @@ Solar production is highly dependent on weather, both the intensity of the solar
 
 ## Data Acquisition
 ### Data Sources
-Interval (every minute) energy production data in kilowatt-hours (kWh) from a rooftop solar installation on the headquarters of the New York Power Authority’s (NYPA) headquarters at 123 Main Street, White Plains, NY. This data is loaded into NYPA’s New York Energy Manager customer data platform and can be extracted to a CSV file.
-Weather data from the National Oceanic Atmospheric Administration (NOAA) for White Plains providing solar incidence and cloud cover data. 
+1. Interval (every minute) energy production data in kilowatt-hours (kWh) from a rooftop solar installation on the headquarters of the New York Power Authority’s (NYPA) headquarters at 123 Main Street, White Plains, NY. This data is loaded into NYPA’s New York Energy Manager customer data platform and can be extracted to a CSV file.
+2. Weather data from the National Oceanic Atmospheric Administration (NOAA) for White Plains providing solar incidence and cloud cover data. 
 
 ### Libraries
 ```{r libraries, message = F, warning = F}
@@ -88,7 +88,7 @@ sapply(new_solar, class)
 Take the mean of the kWh produced by the two solar panels.
 
 1. Change data in columns "PHA_kWh" and "PHB_kWh" from character class to numeric.
-```{r}
+```{r numeric, message = F, warning = F}
 cols.num <- c("PHA_kWh","PHB_kWh")
 new_solar[cols.num] <- sapply(new_solar[cols.num],as.numeric)
 sapply(new_solar, class)
@@ -101,16 +101,16 @@ new_solar <- new_solar %>% mutate_if(is.numeric, funs(round(., 5)))
 ```
 Reference: https://stackoverflow.com/questions/27613310/rounding-selected-columns-of-data-table-in-r
 
-3. Take the mean of kWh produced by the two solar panels (accounting for the NAs in the data using na.rm=TRUE)
+3. Take the sum of kWh produced by the two solar panels (accounting for the NAs in the data using na.rm=TRUE)
 ```{r}
-new_solar$SolarMean <- rowMeans(new_solar[,3:4], na.rm = TRUE)
-head(new_solar)
+new_solar$SolarSum <- rowSums(new_solar[,3:4], na.rm = TRUE)
+tail(new_solar)
 ```
 
 4. Convert "Date" to ISO 8601 standard date format.
-```{r}
+```{r convert date format, message = F, warning = F}
 new_solar$Date <- format(as.Date(new_solar$Date, format = "%m/%d/%y"))
-head(new_solar)
+tail(new_solar)
 ```
 
 ### Sunshine
@@ -137,9 +137,45 @@ new_cloud$Date <- format(as.Date(new_cloud$Date, format = "%m/%d/%Y"))
 head(new_cloud)
 ```
 
-
 ## Data Analysis 
+Aggregate the Solar, Sunshine and Cloud Cover data set into one point for each day in the month to see if there is a correlation between sunshine and cloud cover and solar production.
 
-## Conclusions
+```{r}
+onedate <- new_cloud[c(TRUE,rep(FALSE,23)), ]
+head(onedate)
+```
+
+###Daily sunshine minutes in August 2017
+```{r}
+SunshineDaily <- round(colMeans(matrix(new_sunshine$SunshineMinutes, nrow=24)), digits=0)
+SunshineDaily_df <- data.frame(onedate$Date,SunshineDaily)
+colnames(SunshineDaily_df) <- c("Date","SunshineMinutes")
+SunshineDaily_df 
+```
+
+###Percent of cloud cover per day in August 2017
+```{r}
+CloudCoverDaily <- round(colMeans(matrix(new_cloud$PercentCloudCover, nrow=24)), digits=0)
+CloudCoverDaily_df <- data.frame(onedate$Date,CloudCoverDaily)
+colnames(CloudCoverDaily_df) <- c("Date","PercentCloudCover")
+CloudCoverDaily_df 
+```
+
+### Solar produced per day at NYPA's White Plains office in August 2017
+```{r}
+SolarDaily_df <- aggregate(new_solar$SolarSum, list(Day = new_solar$Date), sum, na.rm = TRUE)
+colnames(SolarDaily_df) <- c("Date", "kWh Produced")
+SolarDaily_df
+```
+
+### GRAPHS/PLOTS - JILL
 
 
+
+## Conclusions - EB & JA based on Analysis
+
+We expected to see the solar production data from the 2 panels at NYPA's White Plain office to be highly dependent on weather, both the intensity of the solar radiation on the panels and also the cloud cover. 
+
+We did see on August 21, the day of the partial solar eclipse [if we can get this in a graph - that would be awesome], a significantly impact the production from panels. 
+
+FROM INTRO: It is critical that the impact of weather on solar production is understood by system designers and operators to ensure the increase of intermittent resources can be effectively managed to provide reliable energy supply to all customers. 

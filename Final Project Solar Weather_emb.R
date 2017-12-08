@@ -57,13 +57,13 @@ sapply(new_solar, class)
 new_solar <- new_solar %>% mutate_if(is.numeric, funs(round(., 5)))
 ####Reference: https://stackoverflow.com/questions/27613310/rounding-selected-columns-of-data-table-in-r
 
-#Third, take the mean of kWh produced by the two solar panels (accounting for the NAs in the data using na.rm=TRUE)
-new_solar$SolarMean <- rowMeans(new_solar[,3:4], na.rm = TRUE)
-head(new_solar, 30)
+#Third, take the sum of kWh produced by the two solar panels (accounting for the NAs in the data using na.rm=TRUE)
+new_solar$SolarSum <- rowSums(new_solar[,3:4], na.rm = TRUE)
+tail(new_solar)
 
 ##Fourth, conver the "Date" to ISO 8601 standard
 new_solar$Date <- format(as.Date(new_solar$Date, format = "%m/%d/%y"))
-head(new_solar)
+tail(new_solar)
 
 ##Separate the date and hour start times into two columns in order to be able to match solar production and weather
 ##Create dataframe with the columns: Date / HourBegin / PercentCloudCover
@@ -82,7 +82,7 @@ new_cloud <- data.frame(cloud_df$Date,cloud_df$HourBegin,cloud_df$CloudCover)
 colnames(new_cloud) <- c("Date", "HourBegin", "PercentCloudCover")
 new_cloud$Date <- format(as.Date(new_cloud$Date, format = "%m/%d/%Y"))
 head(new_cloud)
-
+new_cloud
 
 ##DATA ANALYSIS
 ##Aggregate the Solar, Sunshine and Cloud Cover data set into one point for each day in the month
@@ -100,12 +100,10 @@ CloudCoverDaily_df <- data.frame(onedate$Date,CloudCoverDaily)
 colnames(CloudCoverDaily_df) <- c("Date","PercentCloudCover")
 CloudCoverDaily_df 
 
-##TO DO- EMILIE: Turn Solar data in daily
-SolarDaily_df <- aggregate(new_solar$SolarMean, list(Day = new_solar$Date), mean, na.rm = TRUE)
+SolarDaily_df <- aggregate(new_solar$SolarSum, list(Day = new_solar$Date), sum, na.rm = TRUE)
+colnames(SolarDaily_df) <- c("Date", "kWh Produced")
+SolarDaily_df
 
-
-##GOT STUCK ON THIS Solar data is in 1-minute intervals. Need to collapse the 1-minute interval data to hourly to be able to compare and analyze with the hourly sunshine and cloud cover data. Take the mean of the energy produced in 60 minutes to come up with the hourly production.
-## Time permitting change value from kWh to Wh
 
 ##VISUALIZE
 ##Visualize the Percentage of Cloud Cover Data
@@ -128,4 +126,7 @@ ggplot(data=SunshineDaily_df, aes(x=Date, y=SunshineMinutes, group=1)) +
   theme(axis.text = element_text(size=12, family="Trebuchet MS")) +
   theme(plot.title = element_text(size=12, family="Trebuchet MS", face="bold", hjust=0, color="#666666"))
 
-
+### TO DO
+## JILL - pretty ggplots with cloud cover and sunshine (decide if you want to conver to % rather than minutes) combined and then one with all three combined.
+## EMILIE - Time permitting - turn Solar data in daily (GOT STUCK ON THIS Solar data is in 1-minute intervals. Need to collapse the 1-minute interval data to hourly to be able to compare and analyze with the hourly sunshine and cloud cover data. Take the mean of the energy produced in 60 minutes to come up with the hourly production.)
+## J&E - Conclusion from analysis
