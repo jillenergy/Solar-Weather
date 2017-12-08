@@ -1,0 +1,145 @@
+---
+title: "CUNY Data 607 - Final Project: Understanding the Impact of Weather on the Energy Production of Rooftop Solar"
+author: "Jill Anderson & Emilie Bolduc"
+date: "12/7/2017"
+output:
+  html_document:
+    code_folding: show
+    smooth_scroll: yes
+    toc: yes
+    toc_float: yes
+    smart: no
+  pdf_document:
+    keep_tex: yes
+    toc: yes
+always_allow_html: yes
+---
+
+----------------------------------------------
+Last modified: 12/07/2017 22:14
+----------------------------------------------
+
+## Business Problem and Motivation for Project
+Solar energy is becoming an increasingly important component of the electric grid. From 2011 to 2016, New York saw an increase in the total solar installed of more than 800%. New York energy policy requires at least 50% of the energy consumed in the state by 2030, up from the level of 25% in 2017, which will further increase the amount of solar installed across the state.  
+
+The New York Power Authority works with its customers to install large-scale and distributed solar, and has been a leader in advanced clean energy projects for decades. NYPA installed one of the first rooftop solar projects in New York State on its headquarters in White Plains and currently monitors the energy production on 1-minute intervals.
+
+Solar production is highly dependent on weather, both the intensity of the solar radiation on the panels and also the cloud cover. Further, significant events such as full or partial solar eclipse, will also significantly impact the production from panels. It is critical that the impact of weather on solar production is understood by system designers and operators to ensure the increase of intermittent resources can be effectively managed to provide reliable energy supply to all customers.  
+
+## Data Acquisition
+### Data Sources
+Interval (every minute) energy production data in kilowatt-hours (kWh) from a rooftop solar installation on the headquarters of the New York Power Authority’s (NYPA) headquarters at 123 Main Street, White Plains, NY. This data is loaded into NYPA’s New York Energy Manager customer data platform and can be extracted to a CSV file.
+Weather data from the National Oceanic Atmospheric Administration (NOAA) for White Plains providing solar incidence and cloud cover data. 
+
+### Libraries
+```{r libraries, message = F, warning = F}
+library(RCurl)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(DT)
+library(knitr)
+library(stringr)
+```
+
+### Raw Data
+Sunshine minutes in each hour
+```{r sunshine raw}
+sunshine_url <- getURL("https://raw.githubusercontent.com/jillenergy/Solar-Weather/master/SunshineMinAug2017.csv")
+sunshine_raw <- read.csv(text = sunshine_url)
+head(sunshine_raw)
+```
+
+Cloud cover minutes in each hour
+```{r cloud cover raw}
+cloud_url <- getURL("https://raw.githubusercontent.com/jillenergy/Solar-Weather/master/CloudCoverMinAug2017.csv")
+cloud_raw <- read.csv(text = cloud_url)
+head(cloud_raw)
+```
+
+Solar production (kWh) in each minute from 2 solar panels located at NYPA's headquarters in WPO
+```{r solar production raw}
+solar_raw <- read.csv("/Users/emiliembolduc/CUNY Data 607/Final Project/Data/WPOsolarPHA+PHB_08.01-31.2017.csv", header = TRUE, stringsAsFactors = FALSE)
+head(solar_raw)
+```
+
+
+## Data Transformation and Clean-up
+### Solar 
+Separate the date and minute intervals into two columns, and create dataframe with the columns: Panel Name / Date / Time / kWh
+```{r}
+solar_df <- as.data.frame(solar_raw, stringsAsFactors = FALSE)
+solar_df$Date <- sapply(strsplit(as.character(solar_df$Timestamp), " "), "[", 1)
+solar_df$Minutes <- sapply(strsplit(as.character(solar_df$Timestamp), " "), "[", 2)
+new_solar <- data.frame(solar_df$Device, solar_df$Date, solar_df$Minutes, solar_df$Value, stringsAsFactors = FALSE)
+colnames(new_solar) <- c("PanelName", "Date", "Minutes", "kWh")
+head(new_solar)
+```
+
+Make variables of the PanelNames from observations with tidyr ‘spread’ function, in order to then take the mean of both.
+```{r}
+new_solar <- spread(new_solar, "PanelName", "kWh")
+dplyr::tbl_df(new_solar)
+colnames(new_solar) <- c("Date", "Minutes", "PHA_kWh", "PHB_kWh")
+head(new_solar)
+sapply(new_solar, class)
+```
+
+Take the mean of the kWh produced by the two solar panels.
+
+1. Change data in columns "PHA_kWh" and "PHB_kWh" from character class to numeric.
+```{r}
+cols.num <- c("PHA_kWh","PHB_kWh")
+new_solar[cols.num] <- sapply(new_solar[cols.num],as.numeric)
+sapply(new_solar, class)
+```
+There were a couple of "null" entries that were trasnformed to "NAs," which posed a bit of challenge to work with later.
+
+2. Remove scientific notation and round to 5 digits after decimal.
+```{r}
+new_solar <- new_solar %>% mutate_if(is.numeric, funs(round(., 5)))
+```
+Reference: https://stackoverflow.com/questions/27613310/rounding-selected-columns-of-data-table-in-r
+
+3. Take the mean of kWh produced by the two solar panels (accounting for the NAs in the data using na.rm=TRUE)
+```{r}
+new_solar$SolarMean <- rowMeans(new_solar[,3:4], na.rm = TRUE)
+head(new_solar)
+```
+
+4. Convert "Date" to ISO 8601 standard date format.
+```{r}
+new_solar$Date <- format(as.Date(new_solar$Date, format = "%m/%d/%y"))
+head(new_solar)
+```
+
+### Sunshine
+Separate the date and hour start times into two columns in order to be able to match solar production and weather and create dataframe with the columns: Date / HourBegin / SunshineMinutes. Convert "Date" to ISO 8601 standard date format.
+```{r}
+sunshine_df <- as.data.frame(sunshine_raw)
+sunshine_df$Date <- sapply(strsplit(as.character(sunshine_df$IntervalStartDt), " "), "[", 1)
+sunshine_df$HourBegin <- sapply(strsplit(as.character(sunshine_df$IntervalStartDt), " "), "[", 2)
+new_sunshine <- data.frame(sunshine_df$Date,sunshine_df$HourBegin,sunshine_df$Sunshine)
+colnames(new_sunshine) <- c("Date", "HourBegin", "SunshineMinutes")
+new_sunshine$Date <- format(as.Date(new_sunshine$Date, format = "%m/%d/%Y"))
+head(new_sunshine)
+```
+
+### Cloud Cover
+Separate the date and hour start times into two columns in order to be able to match solar production and weather and create dataframe with the columns: Date / HourBegin / PercentCloudCover. Convert "Date" to ISO 8601 standard date format.
+```{r}
+cloud_df <- as.data.frame(cloud_raw)
+cloud_df$Date <- sapply(strsplit(as.character(cloud_df$IntervalStartDt), " "), "[", 1)
+cloud_df$HourBegin <- sapply(strsplit(as.character(cloud_df$IntervalStartDt), "  "), "[", 2)
+new_cloud <- data.frame(cloud_df$Date,cloud_df$HourBegin,cloud_df$CloudCover)
+colnames(new_cloud) <- c("Date", "HourBegin", "PercentCloudCover")
+new_cloud$Date <- format(as.Date(new_cloud$Date, format = "%m/%d/%Y"))
+head(new_cloud)
+```
+
+
+## Data Analysis 
+
+## Conclusions
+
+
