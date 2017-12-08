@@ -25,7 +25,7 @@ cloud_url <- getURL("https://raw.githubusercontent.com/jillenergy/Solar-Weather/
 cloud_raw <- read.csv(text = cloud_url)
 head(cloud_raw)
 
-##DATA: Solar production
+##DATA: Solar production (kWh) in each minute from 2 solar panels located at NYPA's headquarters in WPO
 solar_raw <- read.csv("/Users/emiliembolduc/CUNY Data 607/Final Project/Data/WPOsolarPHA+PHB_08.01-31.2017.csv", header = TRUE, stringsAsFactors = FALSE)
 head(solar_raw)
 
@@ -61,14 +61,9 @@ new_solar <- new_solar %>% mutate_if(is.numeric, funs(round(., 5)))
 new_solar$SolarMean <- rowMeans(new_solar[,3:4], na.rm = TRUE)
 head(new_solar, 30)
 
-##TO DO - EMILIE:
-##STOPPED here. Solar data is in 1-minute intervals. Need to collapse the 1-minute interval data to hourly to be able to compare and analyze with the hourly sunshine and cloud cover data. Take the mean of the energy produced in 60 minutes to come up with the hourly production.
-
-##Need to make Solar "Date" display the same as Jill's Cloud Cover date; change value from kWh to Wh
-
-##Turn Solar data in daily
-SolarDaily_df <- aggregate(new_solar$SolarMean, list(Day = new_solar$Date), mean, na.rm = TRUE)
-
+##Fourth, conver the "Date" to ISO 8601 standard
+new_solar$Date <- format(as.Date(new_solar$Date, format = "%m/%d/%y"))
+head(new_solar)
 
 ##Separate the date and hour start times into two columns in order to be able to match solar production and weather
 ##Create dataframe with the columns: Date / HourBegin / PercentCloudCover
@@ -77,6 +72,7 @@ sunshine_df$Date <- sapply(strsplit(as.character(sunshine_df$IntervalStartDt), "
 sunshine_df$HourBegin <- sapply(strsplit(as.character(sunshine_df$IntervalStartDt), " "), "[", 2)
 new_sunshine <- data.frame(sunshine_df$Date,sunshine_df$HourBegin,sunshine_df$Sunshine)
 colnames(new_sunshine) <- c("Date", "HourBegin", "SunshineMinutes")
+new_sunshine$Date <- format(as.Date(new_sunshine$Date, format = "%m/%d/%Y"))
 head(new_sunshine)
 
 cloud_df <- as.data.frame(cloud_raw)
@@ -84,12 +80,12 @@ cloud_df$Date <- sapply(strsplit(as.character(cloud_df$IntervalStartDt), " "), "
 cloud_df$HourBegin <- sapply(strsplit(as.character(cloud_df$IntervalStartDt), "  "), "[", 2)
 new_cloud <- data.frame(cloud_df$Date,cloud_df$HourBegin,cloud_df$CloudCover)
 colnames(new_cloud) <- c("Date", "HourBegin", "PercentCloudCover")
+new_cloud$Date <- format(as.Date(new_cloud$Date, format = "%m/%d/%Y"))
 head(new_cloud)
 
 
-
 ##DATA ANALYSIS
-##Aggregate the Sunshine and Cloud Cover data set into one point for each day in the month
+##Aggregate the Solar, Sunshine and Cloud Cover data set into one point for each day in the month
 
 onedate <- new_cloud[c(TRUE,rep(FALSE,23)), ]
 head(onedate)
@@ -104,7 +100,12 @@ CloudCoverDaily_df <- data.frame(onedate$Date,CloudCoverDaily)
 colnames(CloudCoverDaily_df) <- c("Date","PercentCloudCover")
 CloudCoverDaily_df 
 
+##TO DO- EMILIE: Turn Solar data in daily
+SolarDaily_df <- aggregate(new_solar$SolarMean, list(Day = new_solar$Date), mean, na.rm = TRUE)
 
+
+##GOT STUCK ON THIS Solar data is in 1-minute intervals. Need to collapse the 1-minute interval data to hourly to be able to compare and analyze with the hourly sunshine and cloud cover data. Take the mean of the energy produced in 60 minutes to come up with the hourly production.
+## Time permitting change value from kWh to Wh
 
 ##VISUALIZE
 ##Visualize the Percentage of Cloud Cover Data
