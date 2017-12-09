@@ -1,85 +1,140 @@
-##Final Project: SOLAR & WEATHER
-## Emilie Bolduc & Jill Anderson
-## DATA 607
+---
+title: "CUNY Data 607 - Final Project: Understanding the Impact of Weather on the Energy Production of Rooftop Solar"
+author: "Jill Anderson & Emilie Bolduc"
+date: "12/7/2017"
+output:
+  html_document:
+    code_folding: show
+    smooth_scroll: yes
+    toc: yes
+    toc_float: yes
+    smart: no
+  pdf_document:
+    keep_tex: yes
+    toc: yes
+always_allow_html: yes
+---
 
-##Project description
+----------------------------------------------
+Last modified: 12/08/2017 05:15
+----------------------------------------------
 
-##LOAD LIBRARIES
-suppressMessages(suppressWarnings(library(RCurl)))
-suppressMessages(suppressWarnings(library(tidyr)))
-suppressMessages(suppressWarnings(library(dplyr)))
-suppressMessages(suppressWarnings(library(ggplot2)))
-suppressMessages(suppressWarnings(library(DT)))
-suppressMessages(suppressWarnings(library(knitr)))
-suppressMessages(suppressWarnings(library(stringr)))
-suppressMessages(suppressWarnings(library(reshape2)))
+## Business Problem and Motivation for Project
+Solar energy is becoming an increasingly important component of the electric grid. From 2011 to 2016, New York saw an increase in the total solar installed of more than 800%. New York energy policy requires at least 50% of the energy consumed in the state by 2030, up from the level of 25% in 2017, which will further increase the amount of solar installed across the state.  
 
+The New York Power Authority works with its customers to install large-scale and distributed solar, and has been a leader in advanced clean energy projects for decades. NYPA installed one of the first rooftop solar projects in New York State on its headquarters in White Plains and currently monitors the energy production on 1-minute intervals.
 
-##DATA COLLECTION
-##DATA: Sunshine minutes in each hour
+Solar production is highly dependent on weather, both the intensity of the solar radiation on the panels and also the cloud cover. Further, significant events such as full or partial solar eclipse, will also significantly impact the production from panels. It is critical that the impact of weather on solar production is understood by system designers and operators to ensure the increase of intermittent resources can be effectively managed to provide reliable energy supply to all customers.  
+
+## Data Acquisition
+### Data Sources
+1. Interval (every minute) energy production data in kilowatt-hours (kWh) from a rooftop solar installation on the headquarters of the New York Power Authority’s (NYPA) headquarters at 123 Main Street, White Plains, NY. This data is loaded into NYPA’s New York Energy Manager customer data platform and can be extracted to a CSV file.
+2. Weather data from the National Oceanic Atmospheric Administration (NOAA) for White Plains providing solar incidence and cloud cover data. 
+
+### Libraries
+```{r libraries, message = F, warning = F}
+library(RCurl)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(DT)
+library(knitr)
+library(stringr)
+library(reshape2)
+```
+
+### Raw Data
+Sunshine minutes in each hour
+```{r sunshine raw}
 sunshine_url <- getURL("https://raw.githubusercontent.com/jillenergy/Solar-Weather/master/SunshineMinAug2017.csv")
 sunshine_raw <- read.csv(text = sunshine_url)
 head(sunshine_raw)
+```
 
-##DATA: Cloud cover minutes in each hour
+Cloud cover minutes in each hour
+```{r cloud cover raw}
 cloud_url <- getURL("https://raw.githubusercontent.com/jillenergy/Solar-Weather/master/CloudCoverMinAug2017.csv")
 cloud_raw <- read.csv(text = cloud_url)
 head(cloud_raw)
+```
 
-##DATA: Solar production (kWh) in each minute from 2 solar panels located at NYPA's headquarters in WPO
+Solar production (kWh) in each minute from 2 solar panels located at NYPA's headquarters in WPO
+```{r solar production raw}
 solar_raw <- read.csv("https://raw.githubusercontent.com/jillenergy/Solar-Weather/master/WPOsolarPHA%2BPHB_08.01-31.2017.csv", header = TRUE, stringsAsFactors = FALSE)
 head(solar_raw)
+```
 
-###DATA TIDYING
-##SOLAR DATA
-##Separate the date and minute intervals into two columns 
-##Create dataframe with the columns: Panel Name / Date / Time / kWh
+
+## Data Transformation and Clean-up
+### Solar 
+Separate the date and minute intervals into two columns, and create dataframe with the columns: Panel Name / Date / Time / kWh
+```{r}
 solar_df <- as.data.frame(solar_raw, stringsAsFactors = FALSE)
 solar_df$Date <- sapply(strsplit(as.character(solar_df$Timestamp), " "), "[", 1)
 solar_df$Minutes <- sapply(strsplit(as.character(solar_df$Timestamp), " "), "[", 2)
 new_solar <- data.frame(solar_df$Device, solar_df$Date, solar_df$Minutes, solar_df$Value, stringsAsFactors = FALSE)
 colnames(new_solar) <- c("PanelName", "Date", "Minutes", "kWh")
 head(new_solar)
+```
 
-#Make variables of the PanelNames from observations with tidyr ‘spread’ function, in order to then take the mean of both.
+Make variables of the PanelNames from observations with tidyr ‘spread’ function, in order to then take the mean of both.
+```{r}
 new_solar <- spread(new_solar, "PanelName", "kWh")
 dplyr::tbl_df(new_solar)
 colnames(new_solar) <- c("Date", "Minutes", "PHA_kWh", "PHB_kWh")
 head(new_solar)
 sapply(new_solar, class)
+```
 
-##Take the mean of the kWh produced by the two solar panels
-#First need to change data in columns "PHA_kWh" and "PHB_kWh" from character class to numeric.
+Take the mean of the kWh produced by the two solar panels.
+
+1. Change data in columns "PHA_kWh" and "PHB_kWh" from character class to numeric.
+```{r numeric, message = F, warning = F}
 cols.num <- c("PHA_kWh","PHB_kWh")
 new_solar[cols.num] <- sapply(new_solar[cols.num],as.numeric)
 sapply(new_solar, class)
+```
+There were a couple of "null" entries that were trasnformed to "NAs," which posed a bit of challenge to work with later.
 
-#Second, format out of scientific notation and round to 5 digits after decimal
+2. Remove scientific notation and round to 5 digits after decimal.
+```{r}
 new_solar <- new_solar %>% mutate_if(is.numeric, funs(round(., 5)))
-####Reference: https://stackoverflow.com/questions/27613310/rounding-selected-columns-of-data-table-in-r
+```
+Reference: https://stackoverflow.com/questions/27613310/rounding-selected-columns-of-data-table-in-r
 
-#Third, take the sum of kWh produced by the two solar panels (accounting for the NAs in the data using na.rm=TRUE)
+3. Take the sum of kWh produced by the two solar panels (accounting for the NAs in the data using na.rm=TRUE)
+```{r}
 new_solar$SolarSum <- rowSums(new_solar[,3:4], na.rm = TRUE)
 tail(new_solar)
+```
 
-##Fourth, conver the "Date" to ISO 8601 standard
+4. Convert "Date" to ISO 8601 standard date format.
+```{r convert date format, message = F, warning = F}
 new_solar$Date <- format(as.Date(new_solar$Date, format = "%m/%d/%y"))
 tail(new_solar)
+```
 
-##Separate the date and hour start times into two columns in order to be able to match solar production and weather
-##Create dataframe with the columns: Date / HourBegin / PercentCloudCover
+### Sunshine
+Separate the date and hour start times into two columns in order to be able to match solar production and weather and create dataframe with the columns: Date / HourBegin / SunshineMinutes. Convert "Date" to ISO 8601 standard date format.
+```{r}
 sunshine_df <- as.data.frame(sunshine_raw)
 sunshine_df$Date <- sapply(strsplit(as.character(sunshine_df$IntervalStartDt), " "), "[", 1)
 sunshine_df$HourBegin <- sapply(strsplit(as.character(sunshine_df$IntervalStartDt), " "), "[", 2)
 new_sunshine <- data.frame(sunshine_df$Date,sunshine_df$HourBegin,sunshine_df$Sunshine)
 colnames(new_sunshine) <- c("Date", "HourBegin", "SunshineMinutes")
 new_sunshine$Date <- format(as.Date(new_sunshine$Date, format = "%m/%d/%Y"))
+head(new_sunshine)
+```
 
-##Create an alternate look at sunshine as a percentage of the hour
+###Create an alternate look at sunshine as a percentage of the hour
+```{r}
 new_sunshine$PercentSunshine <- round(((new_sunshine$SunshineMinutes/60) * 100), digits = 0)
 head(new_sunshine)
+```
 
-
+### Cloud Cover
+Separate the date and hour start times into two columns in order to be able to match solar production and weather and create dataframe with the columns: Date / HourBegin / PercentCloudCover. Convert "Date" to ISO 8601 standard date format.
+```{r}
 cloud_df <- as.data.frame(cloud_raw)
 cloud_df$Date <- sapply(strsplit(as.character(cloud_df$IntervalStartDt), " "), "[", 1)
 cloud_df$HourBegin <- sapply(strsplit(as.character(cloud_df$IntervalStartDt), "  "), "[", 2)
@@ -87,58 +142,77 @@ new_cloud <- data.frame(cloud_df$Date,cloud_df$HourBegin,cloud_df$CloudCover)
 colnames(new_cloud) <- c("Date", "HourBegin", "PercentCloudCover")
 new_cloud$Date <- format(as.Date(new_cloud$Date, format = "%m/%d/%Y"))
 head(new_cloud)
-new_cloud
+```
 
-##DATA ANALYSIS
-##Aggregate the Solar, Sunshine and Cloud Cover data set into one point for each day in the month
+## Data Analysis 
+Aggregate the Solar, Sunshine and Cloud Cover data set into one point for each day in the month to see if there is a correlation between sunshine and cloud cover and solar production.
 
+```{r}
 onedate <- new_cloud[c(TRUE,rep(FALSE,23)), ]
 head(onedate)
+```
 
+###Daily sunshine percentage
+```{r}
 SunshineDaily <- round(colMeans(matrix(new_sunshine$PercentSunshine, nrow=24)), digits=1)
 SunshineDaily_df <- data.frame(onedate$Date,SunshineDaily)
 colnames(SunshineDaily_df) <- c("Date","PercentSunshine")
 head(SunshineDaily_df) 
+```
 
+###Daily cloud cover percentage
+```{r}
 CloudCoverDaily <- round(colMeans(matrix(new_cloud$PercentCloudCover, nrow=24)), digits=1)
 CloudCoverDaily_df <- data.frame(onedate$Date,CloudCoverDaily)
 colnames(CloudCoverDaily_df) <- c("Date","PercentCloudCover")
 head(CloudCoverDaily_df) 
+```
 
+##Daily solar production total
+```{r}
 SolarDaily_df <- aggregate(new_solar$SolarSum, list(Day = new_solar$Date), sum, na.rm = TRUE)
 colnames(SolarDaily_df) <- c("Date", "kWhProduced")
 SolarDaily_df[,-1] <-round(SolarDaily_df[,-1],1)
 head(SolarDaily_df)
+```
 
-##Combine data into one dataframe
+###Combine data into one dataframe
+```{r}
 AllData_df <- data.frame("Date" = SunshineDaily_df$Date, 
                   "PercentSunshine" = SunshineDaily_df$PercentSunshine, 
                   "PercentCloudCover" = CloudCoverDaily_df$PercentCloudCover,
                   "kWhProduced" = SolarDaily_df$kWhProduced)
 head(AllData_df)
+```
 
-##Combine Sunshine Percentage and Solar Production into one dataframe for future plotting
+###Combine Sunshine Percentage and Solar Production into one dataframe for future plotting
+```{r}
 SunshineSolar_df <- data.frame(SunshineDaily_df$Date,
                   "PercentSunshine" = SunshineDaily_df$PercentSunshine, 
                   "kWhProduced" = SolarDaily_df$kWhProduced)
 colnames(SunshineSolar_df) <- c("Date","PercentSunshine","kWhProduced")
 head(SunshineSolar_df)
+```
 
-##Combine Sunshine Percentage and Cloud Percentage into one dataframe for future plotting
+###Combine Sunshine Percentage and Cloud Percentage into one dataframe for future plotting
+```{r}
 SunshineCloud_df <- data.frame(SunshineDaily_df$Date,
                   "PercentSunshine" = SunshineDaily_df$PercentSunshine, 
                   "PercentCloudCover" = CloudCoverDaily_df$PercentCloudCover)
 colnames(SunshineCloud_df) <- c("Date","PercentSunshine","PercentCloudCover")
 head(SunshineCloud_df)
+```
 
-##For multi-variable plotting, use melt to create one column with the date and one column with all of the data for plotting
+###For multi-variable plotting, use melt to create one column with the date and one column with all of the data for plotting
+```{r}
 SunshineCloudMelt_df <- melt(SunshineCloud_df, id.vars = 'Date')
 head(SunshineCloudMelt_df)
+```
 
-
-##VISUALIZE
-##Visualize the Percentage of Cloud Cover Data as an average per day
-CloudPlot <- ggplot(data=AllData_df, aes(x=as.numeric(row.names(AllData_df)), y=PercentCloudCover, group=1)) +
+## Visualize the data in graphs
+###Visualize the Percentage of Cloud Cover Data as an average per day
+```{r}
+CloudPlot <- ggplot(data=AllData_df, aes(x=Date, y=PercentCloudCover, group=1)) +
   geom_point(color="#0066ff", size=2) +
   ggtitle("Percent Cloud Cover by Hour in White Plains, NY for Each Day August 2017") +
   labs(x="Date in August 2017", y="Average Percent of Cloud Cover per Day") +
@@ -148,10 +222,12 @@ CloudPlot <- ggplot(data=AllData_df, aes(x=as.numeric(row.names(AllData_df)), y=
   theme(axis.text = element_text(size=12, family="Trebuchet MS")) +
   theme(plot.title = element_text(size=12, family="Trebuchet MS", face="bold", hjust=0, color="#666666"))
 CloudPlot
+```
 
-##Visualize the Percentage of Sunshine in each hour as an average per day
-SunshinePlot <- ggplot(data=SunshineDaily_df, aes(Date, y=PercentSunshine)) +
-  geom_point(color="blue", size=2)
+###Visualize the Percentage of Sunshine in each hour as an average per day
+```{r}
+SunshinePlot <- ggplot(data=SunshineDaily_df, aes(x=Date, y=PercentSunshine, group=1)) +
+  geom_point(color="blue", size=2) +
   ggtitle("Average Percentage of Sunshine by Hour in White Plains, NY for Each Day August 2017") +
   labs(x="Date in August 2017", y="Average Percentage of Sunshine per Hour each Day") +
   theme(axis.title.y = element_text(size=12, color="#666666")) +
@@ -160,11 +236,10 @@ SunshinePlot <- ggplot(data=SunshineDaily_df, aes(Date, y=PercentSunshine)) +
   theme(axis.text = element_text(size=12, family="Trebuchet MS")) +
   theme(plot.title = element_text(size=12, family="Trebuchet MS", face="bold", hjust=0, color="#666666"))
 SunshinePlot
+```
 
-
-
-
-##Visualize the kWh solar produced each day
+###Visualize the kWh solar produced each day
+```{r}
 SolarPlot <- ggplot(data=AllData_df, aes(Date, y=kWhProduced)) +
   geom_point(color="red", size=2) +
   ggtitle("Total kWh Produced in White Plains, NY for Each Day August 2017") +
@@ -175,8 +250,10 @@ SolarPlot <- ggplot(data=AllData_df, aes(Date, y=kWhProduced)) +
   theme(axis.text = element_text(size=12, family="Trebuchet MS")) +
   theme(plot.title = element_text(size=12, family="Trebuchet MS", face="bold", hjust=0, color="#666666"))
 SolarPlot
+```
 
-##Sunshine Percent and Cloud Cover Percent graphed together on one graph
+###Visualize Sunshine Percent and Cloud Cover Percent graphed together on one graph
+```{r}
 SunCloudPlot <- ggplot(SunshineCloudMelt_df, aes(x=Date, y = value, fill = variable)) +
   geom_bar(stat='identity') +
   ggtitle("Percentage of Cloud Cover and Sunshine Minutes in White Plains, NY for Each Day August 2017") +
@@ -187,4 +264,11 @@ SunCloudPlot <- ggplot(SunshineCloudMelt_df, aes(x=Date, y = value, fill = varia
   theme(axis.text = element_text(size=12, family="Trebuchet MS")) +
   theme(plot.title = element_text(size=12, family="Trebuchet MS", face="bold", hjust=0, color="#666666"))
 SunCloudPlot
+```
 
+
+## Conclusions
+
+We expected to see the solar production data from the 2 panels at NYPA's White Plain office to be highly dependent on weather, both the intensity of the solar radiation on the panels represented in this data set as sunshine minutes and also the cloud cover percentage. 
+
+The better engineers and electric grid system operators are able to understand the impact of weather on solar production, the easier it will be to deploy and manage more solar resources throughout the system.  
