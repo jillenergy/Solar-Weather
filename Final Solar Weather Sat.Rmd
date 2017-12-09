@@ -252,7 +252,7 @@ SolarPlot <- ggplot(data=AllData_df, aes(Date, y=kWhProduced)) +
 SolarPlot
 ```
 
-###Visualize Sunshine Percent and Cloud Cover Percent graphed together on one graph
+###Visualize Sunshine Percent and Cloud Cover Percent graphed together on one graph as bars
 ```{r}
 SunCloudPlot <- ggplot(SunshineCloudMelt_df, aes(x=Date, y = value, fill = variable)) +
   geom_bar(stat='identity') +
@@ -266,9 +266,46 @@ SunCloudPlot <- ggplot(SunshineCloudMelt_df, aes(x=Date, y = value, fill = varia
 SunCloudPlot
 ```
 
+##Solar production and sunshine percentage graphed togather (line)
+```{r}
+SunshineSolarPlot <- ggplot(SunshineSolar_df, aes(Date, group=1)) + 
+  geom_line(aes(y = kWhProduced, colour = "SolarProduced")) +
+  geom_line(aes(y = PercentSunshine, colour = "PercentSunshine")) + 
+  ggtitle("Total Solar Produced and Average Percent Sunshine in White Plains, NY for Each Day August 2017") +
+  labs(x="Date in August 2017", y="Percentage") +
+  theme(axis.title.y = element_text(size=12, color="#666666")) +
+  theme(legend.position = 'bottom',  
+        axis.text.x = element_text(angle = 65, hjust = 1)) +
+  theme(axis.text = element_text(size=12, family="Trebuchet MS")) +
+  theme(plot.title = element_text(size=12, family="Trebuchet MS", face="bold", hjust=0, color="#666666"))
+SunshineSolarPlot
+```
+
+###All data graphed togather as lines
+```{r}
+AllDataPlot <- ggplot(AllData_df, aes(Date, group=1)) + 
+  geom_line(aes(y = kWhProduced, colour = "SolarProduced")) +
+  geom_line(aes(y = PercentCloudCover, colour = "PercentCloudCover")) +
+  geom_line(aes(y = PercentSunshine, colour = "PercentSunshine")) + 
+  ggtitle("Total Solar Produced and Average Percent Sunshine and Cloud Cover in White Plains, NY for Each Day August 2017") +
+  labs(x="Date in August 2017", y="Percentage") +
+  theme(axis.title.y = element_text(size=12, color="#666666")) +
+  theme(legend.position = 'bottom',  
+        axis.text.x = element_text(angle = 65, hjust = 1)) +
+  theme(axis.text = element_text(size=12, family="Trebuchet MS")) +
+  theme(plot.title = element_text(size=12, family="Trebuchet MS", face="bold", hjust=0, color="#666666"))
+  
+AllDataPlot
+```
 
 ## Conclusions
 
-We expected to see the solar production data from the 2 panels at NYPA's White Plain office to be highly dependent on weather, both the intensity of the solar radiation on the panels represented in this data set as sunshine minutes and also the cloud cover percentage. 
+We expected to see the solar production data from the two panels at NYPA's White Plain office to be highly dependent on weather, both the intensity of the solar radiation on the panels represented in this data set as sunshine minutes and also the cloud cover percentage. 
+
+SUNSHINE MINUTES ON SOLAR PRODUCTION
+We observed a strong correlation between solar production and the percentage of sunshine minutes in an hour throughout the month. As sunshine is high as it was August 9 and 10, there is alos a high produciton of solar. There is a spreading of the lines in the last third of the month when looking at solar production and sunshine, but the corrleation still exists, as demonstrated on August 29 with a dip in production on the same day as a dip in sunshine minutes.
+
+CLOUD COVER PERCENTAGE ON SOLAR PRODUCTION
+Similarly, there is an inverse correlation between cloud cover and solar produced on most days. For example, August 15 the cloud cover is very high and the solar production and sunshine minutes are both low as one would expect. There are several observations where the correlation does not hold. For example, the dip in cloud cover on August 17 does not result in a spike of either sunshine or solar production, suggestion that the intermittent and variable density nature of cloud cover makes it a imperfect predictor of solar production. 
 
 The better engineers and electric grid system operators are able to understand the impact of weather on solar production, the easier it will be to deploy and manage more solar resources throughout the system.  

@@ -135,6 +135,11 @@ head(SunshineCloud_df)
 SunshineCloudMelt_df <- melt(SunshineCloud_df, id.vars = 'Date')
 head(SunshineCloudMelt_df)
 
+SunshineSolarMelt_df <- melt(SunshineSolar_df, id.vars = 'Date')
+head(SunshineSolarMelt_df)
+
+AllDataMelt_df <- melt(AllData_df, id.vars = 'Date')
+head(AllDataMelt_df)
 
 ##VISUALIZE
 ##Visualize the Percentage of Cloud Cover Data as an average per day
@@ -150,8 +155,8 @@ CloudPlot <- ggplot(data=AllData_df, aes(x=as.numeric(row.names(AllData_df)), y=
 CloudPlot
 
 ##Visualize the Percentage of Sunshine in each hour as an average per day
-SunshinePlot <- ggplot(data=SunshineDaily_df, aes(Date, y=PercentSunshine)) +
-  geom_point(color="blue", size=2)
+SunshinePlot <- ggplot(data=SunshineDaily_df, aes(x=as.numeric(row.names(AllData_df)), y=PercentSunshine, group=1)) +
+  geom_point(color="blue", size=2) +
   ggtitle("Average Percentage of Sunshine by Hour in White Plains, NY for Each Day August 2017") +
   labs(x="Date in August 2017", y="Average Percentage of Sunshine per Hour each Day") +
   theme(axis.title.y = element_text(size=12, color="#666666")) +
@@ -176,8 +181,22 @@ SolarPlot <- ggplot(data=AllData_df, aes(Date, y=kWhProduced)) +
   theme(plot.title = element_text(size=12, family="Trebuchet MS", face="bold", hjust=0, color="#666666"))
 SolarPlot
 
-##Sunshine Percent and Cloud Cover Percent graphed together on one graph
-SunCloudPlot <- ggplot(SunshineCloudMelt_df, aes(x=Date, y = value, fill = variable)) +
+##Multi-varible graphing
+##Sunshine Percent and Cloud Cover Percent graphed together on one graph (line)
+SunCloudPlot <- ggplot(AllData_df, aes(Date, group=1)) + 
+  geom_line(aes(y = PercentSunshine, colour = "PercentSunshine")) + 
+  geom_line(aes(y = PercentCloudCover, colour = "PercentCloudCover")) +
+ggtitle("Percentage of Cloud Cover and Sunshine Minutes in White Plains, NY for Each Day August 2017") +
+  labs(x="Date in August 2017", y="Percentage") +
+  theme(axis.title.y = element_text(size=12, color="#666666")) +
+  theme(legend.position = 'bottom',  
+        axis.text.x = element_text(angle = 65, hjust = 1)) +
+  theme(axis.text = element_text(size=12, family="Trebuchet MS")) +
+  theme(plot.title = element_text(size=12, family="Trebuchet MS", face="bold", hjust=0, color="#666666"))
+SunCloudPlot
+
+##Sunshine Percent and Cloud Cover Percent graphed together on one graph (bar charts)
+ggplot(SunshineCloudMelt_df, aes(x=Date, y = value, fill = variable)) +
   geom_bar(stat='identity') +
   ggtitle("Percentage of Cloud Cover and Sunshine Minutes in White Plains, NY for Each Day August 2017") +
   labs(x="Date in August 2017", y="Percentage") +
@@ -186,5 +205,33 @@ SunCloudPlot <- ggplot(SunshineCloudMelt_df, aes(x=Date, y = value, fill = varia
         axis.text.x = element_text(angle = 65, hjust = 1)) +
   theme(axis.text = element_text(size=12, family="Trebuchet MS")) +
   theme(plot.title = element_text(size=12, family="Trebuchet MS", face="bold", hjust=0, color="#666666"))
-SunCloudPlot
+
+##Solar production and sunshine percentage graphed togather (line)
+SunshineSolarPlot <- ggplot(SunshineSolar_df, aes(Date, group=1)) + 
+  geom_line(aes(y = kWhProduced, colour = "SolarProduced")) +
+  geom_line(aes(y = PercentSunshine, colour = "PercentSunshine")) + 
+  ggtitle("Total Solar Produced and Average Percent Sunshine in White Plains, NY for Each Day August 2017") +
+  labs(x="Date in August 2017", y="Percentage") +
+  theme(axis.title.y = element_text(size=12, color="#666666")) +
+  theme(legend.position = 'bottom',  
+        axis.text.x = element_text(angle = 65, hjust = 1)) +
+  theme(axis.text = element_text(size=12, family="Trebuchet MS")) +
+  theme(plot.title = element_text(size=12, family="Trebuchet MS", face="bold", hjust=0, color="#666666"))
+SunshineSolarPlot
+
+
+##All data graphed togather (line)
+AllDataPlot <- ggplot(AllData_df, aes(Date, group=1)) + 
+  geom_line(aes(y = kWhProduced, colour = "SolarProduced")) +
+  geom_line(aes(y = PercentCloudCover, colour = "PercentCloudCover")) +
+  geom_line(aes(y = PercentSunshine, colour = "PercentSunshine")) + 
+  ggtitle("Total Solar Produced and Average Percent Sunshine and Cloud Cover in White Plains, NY for Each Day August 2017") +
+  labs(x="Date in August 2017", y="Percentage") +
+  theme(axis.title.y = element_text(size=12, color="#666666")) +
+  theme(legend.position = 'bottom',  
+        axis.text.x = element_text(angle = 65, hjust = 1)) +
+  theme(axis.text = element_text(size=12, family="Trebuchet MS")) +
+  theme(plot.title = element_text(size=12, family="Trebuchet MS", face="bold", hjust=0, color="#666666"))
+  
+AllDataPlot
 
